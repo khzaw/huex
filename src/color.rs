@@ -1,29 +1,15 @@
 use serde::Serialize;
-use std::ops::{Add, AddAssign, Div};
+use std::ops::{Add, AddAssign, Div, Mul};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub struct Rgb8 {
     pub r: u8,
     pub g: u8,
     pub b: u8,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 pub struct Lab {
-    pub l: f64,
-    pub a: f64,
-    pub b: f64,
-}
-
-#[derive(Debug, Serialize)]
-pub struct RgbJson {
-    pub r: u8,
-    pub g: u8,
-    pub b: u8,
-}
-
-#[derive(Debug, Serialize)]
-pub struct OklabJson {
     pub l: f64,
     pub a: f64,
     pub b: f64,
@@ -32,26 +18,6 @@ pub struct OklabJson {
 impl Rgb8 {
     pub fn hex(self) -> String {
         format!("#{:02X}{:02X}{:02X}", self.r, self.g, self.b)
-    }
-}
-
-impl From<Rgb8> for RgbJson {
-    fn from(value: Rgb8) -> Self {
-        Self {
-            r: value.r,
-            g: value.g,
-            b: value.b,
-        }
-    }
-}
-
-impl From<Lab> for OklabJson {
-    fn from(value: Lab) -> Self {
-        Self {
-            l: value.l,
-            a: value.a,
-            b: value.b,
-        }
     }
 }
 
@@ -97,6 +63,18 @@ impl AddAssign for Lab {
         self.l += rhs.l;
         self.a += rhs.a;
         self.b += rhs.b;
+    }
+}
+
+impl Mul<f64> for Lab {
+    type Output = Self;
+
+    fn mul(self, rhs: f64) -> Self::Output {
+        Self {
+            l: self.l * rhs,
+            a: self.a * rhs,
+            b: self.b * rhs,
+        }
     }
 }
 

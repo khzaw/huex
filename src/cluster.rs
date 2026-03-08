@@ -75,10 +75,12 @@ pub fn fit_kmeans(
     let k = requested_k.min(points.len()).max(1);
     let mut centroids = init_kmeans_plus_plus(points, k, seed);
     let mut assignments = vec![0usize; points.len()];
+    let mut sums = vec![Lab::zero(); centroids.len()];
+    let mut counts = vec![0usize; centroids.len()];
 
     for _ in 0..max_iterations {
-        let mut sums = vec![Lab::zero(); centroids.len()];
-        let mut counts = vec![0usize; centroids.len()];
+        sums.iter_mut().for_each(|s| *s = Lab::zero());
+        counts.iter_mut().for_each(|c| *c = 0);
         let mut changed = false;
 
         for (index, point) in points.iter().copied().enumerate() {
@@ -109,9 +111,11 @@ pub fn fit_kmeans(
         }
     }
 
-    let mut sums = vec![Lab::zero(); centroids.len()];
-    let mut counts = vec![0usize; centroids.len()];
-
+    // Final pass: recompute sums/counts against the latest centroids so
+    // cluster centroids and weights are consistent when the loop exhausted
+    // max_iterations without converging.
+    sums.iter_mut().for_each(|s| *s = Lab::zero());
+    counts.iter_mut().for_each(|c| *c = 0);
     for point in points.iter().copied() {
         let nearest = nearest_index(point, &centroids);
         sums[nearest] += point;
@@ -160,17 +164,9 @@ pub fn merge_close_clusters(mut clusters: Vec<Cluster>, threshold: f64) -> Vec<C
         let right_weight = clusters[right].weight as f64;
         let total_weight = left_weight + right_weight;
         let merged = Cluster {
-            centroid: Lab {
-                l: ((clusters[left].centroid.l * left_weight)
-                    + (clusters[right].centroid.l * right_weight))
-                    / total_weight,
-                a: ((clusters[left].centroid.a * left_weight)
-                    + (clusters[right].centroid.a * right_weight))
-                    / total_weight,
-                b: ((clusters[left].centroid.b * left_weight)
-                    + (clusters[right].centroid.b * right_weight))
-                    / total_weight,
-            },
+            centroid: (clusters[left].centroid * left_weight
+                + clusters[right].centroid * right_weight)
+                / total_weight,
             weight: clusters[left].weight + clusters[right].weight,
         };
 
@@ -182,7 +178,7 @@ pub fn merge_close_clusters(mut clusters: Vec<Cluster>, threshold: f64) -> Vec<C
     clusters
 }
 
-pub fn nearest_centroid_index(point: Lab, clusters: &[Cluster]) -> usize {
+pub fn nearest_cluster_index(point: Lab, clusters: &[Cluster]) -> usize {
     let mut best_index = 0usize;
     let mut best_distance = f64::MAX;
 
@@ -215,39 +211,40 @@ fn nearest_index(point: Lab, centroids: &[Lab]) -> usize {
 fn init_kmeans_plus_plus(points: &[Lab], k: usize, seed: u64) -> Vec<Lab> {
     let mut rng = Rng::new(seed);
     let mut centroids = Vec::with_capacity(k);
-    centroids.push(points[rng.index(points.len())]);
+    let first = points[rng.index(points.len())];
+    centroids.push(first);
+
+    let mut distances: Vec<f64> = points
+        .iter()
+        .map(|point| point.distance_squared(first))
+        .collect();
 
     while centroids.len() < k {
-        let distances: Vec<f64> = points
-            .iter()
-            .copied()
-            .map(|point| {
-                centroids
-                    .iter()
-                    .copied()
-                    .map(|centroid| point.distance_squared(centroid))
-                    .fold(f64::MAX, f64::min)
-            })
-            .collect();
-
         let total_distance: f64 = distances.iter().sum();
         if total_distance <= f64::EPSILON {
             centroids.push(points[rng.index(points.len())]);
-            continue;
+        } else {
+            let mut target = rng.next_f64() * total_distance;
+            let mut chosen = points[0];
+
+            for (index, distance) in distances.iter().copied().enumerate() {
+                target -= distance;
+                if target <= 0.0 {
+                    chosen = points[index];
+                    break;
+                }
+            }
+
+            centroids.push(chosen);
         }
 
-        let mut target = rng.next_f64() * total_distance;
-        let mut chosen = points[0];
-
-        for (index, distance) in distances.iter().copied().enumerate() {
-            target -= distance;
-            if target <= 0.0 {
-                chosen = points[index];
-                break;
+        let new_centroid = *centroids.last().unwrap();
+        for (dist, point) in distances.iter_mut().zip(points.iter()) {
+            let d = point.distance_squared(new_centroid);
+            if d < *dist {
+                *dist = d;
             }
         }
-
-        centroids.push(chosen);
     }
 
     centroids

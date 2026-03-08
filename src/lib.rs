@@ -11,9 +11,9 @@ use image::io::Reader as ImageReader;
 use serde::Serialize;
 
 use crate::cluster::{
-    Cluster, fit_kmeans, merge_close_clusters, nearest_centroid_index, sample_pixels,
+    Cluster, fit_kmeans, merge_close_clusters, nearest_cluster_index, sample_pixels,
 };
-use crate::color::{Lab, OklabJson, Rgb8, RgbJson, rgb8_to_oklab};
+use crate::color::{Lab, Rgb8, rgb8_to_oklab};
 use crate::output::{print_report, write_json_report};
 
 const CONVERGENCE_DELTA_E: f64 = 0.001;
@@ -126,8 +126,8 @@ struct SettingsReport {
 pub struct ColorReport {
     rank: usize,
     hex: String,
-    rgb: RgbJson,
-    oklab: OklabJson,
+    rgb: Rgb8,
+    oklab: Lab,
     population: usize,
     percentage: f64,
 }
@@ -272,7 +272,7 @@ fn summarize_colors(pixels: &[Rgb8], clusters: &[Cluster]) -> Vec<ColorReport> {
 
     for pixel in pixels {
         let lab = rgb8_to_oklab(*pixel);
-        let index = nearest_centroid_index(lab, clusters);
+        let index = nearest_cluster_index(lab, clusters);
         counts[index] += 1;
         sums[index] += lab;
     }
@@ -290,8 +290,8 @@ fn summarize_colors(pixels: &[Rgb8], clusters: &[Cluster]) -> Vec<ColorReport> {
         colors.push(ColorReport {
             rank: 0,
             hex: rgb.hex(),
-            rgb: rgb.into(),
-            oklab: centroid.into(),
+            rgb,
+            oklab: centroid,
             population: counts[index],
             percentage: counts[index] as f64 / total_pixels,
         });
