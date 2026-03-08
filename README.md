@@ -1,13 +1,14 @@
 # huex
 
-`huex` is a CLI that extracts dominant colors from an image and returns either human-readable terminal output or structured JSON for downstream agents.
+`huex` is a CLI that extracts dominant colors from an image and returns either compact human-readable terminal output or structured JSON for downstream agents.
 
 It clusters pixels in Oklab, uses k-means++ initialization, stops when centroid movement falls below a perceptual Delta-E threshold, and merges near-duplicate palette entries after clustering.
 
 ## Features
 
 - Agent-friendly `--json` output with hex, RGB, Oklab coordinates, population, and percentage.
-- Human-friendly ANSI swatches for quick inspection in a terminal.
+- Compact default terminal output with ANSI swatches, hex values, and percentages.
+- Optional `--rgb` and `--verbose` terminal modes.
 - Deterministic sampling and initialization via `--seed`.
 - Accepts `--image <PATH>` or a positional image path.
 - Supports `-` as the input path to read image bytes from stdin.
@@ -26,6 +27,12 @@ The binary will be available at `target/release/huex`.
 # Human-readable output
 cargo run -- --image ./fixtures/duo.ppm
 
+# Human-readable output with RGB values
+cargo run -- --image ./fixtures/duo.ppm --rgb
+
+# Detailed terminal report
+cargo run -- --image ./fixtures/duo.ppm --verbose
+
 # JSON output for scripts and agents
 cargo run -- --image ./fixtures/duo.ppm --json
 
@@ -40,6 +47,8 @@ cat ./fixtures/duo.ppm | cargo run -- --image - --json
 - `--iter <N>`: maximum k-means iterations. Default: `50`.
 - `--sample <N>`: max sampled pixels for clustering. Use `0` to cluster all visible pixels. Default: `10000`.
 - `--seed <N>`: deterministic seed for sampling and k-means++ initialization. Default: `42`.
+- `--rgb`: include RGB values in the compact terminal output.
+- `--verbose`: show the detailed terminal report.
 - `--json`: emit JSON instead of ANSI text.
 
 ## Notes

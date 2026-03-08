@@ -14,7 +14,7 @@ use crate::cluster::{
     Cluster, fit_kmeans, merge_close_clusters, nearest_cluster_index, sample_pixels,
 };
 use crate::color::{Lab, Rgb8, rgb8_to_oklab};
-use crate::output::{print_report, write_json_report};
+use crate::output::{OutputMode, print_report, write_json_report};
 
 const CONVERGENCE_DELTA_E: f64 = 0.001;
 const MERGE_DELTA_E: f64 = 5.0;
@@ -72,6 +72,16 @@ pub struct Cli {
 
     #[arg(long, help = "Emit structured JSON output for agents and scripts.")]
     pub json: bool,
+
+    #[arg(long, help = "Include RGB values in the compact terminal output.")]
+    pub rgb: bool,
+
+    #[arg(
+        long,
+        conflicts_with = "json",
+        help = "Show the detailed terminal report with sampling and Oklab values."
+    )]
+    pub verbose: bool,
 }
 
 #[derive(Debug)]
@@ -82,6 +92,8 @@ struct Config {
     sample_limit: usize,
     seed: u64,
     json: bool,
+    rgb: bool,
+    verbose: bool,
 }
 
 #[derive(Debug)]
@@ -153,6 +165,8 @@ impl Config {
             sample_limit: cli.sample,
             seed: cli.seed,
             json: cli.json,
+            rgb: cli.rgb,
+            verbose: cli.verbose,
         })
     }
 }
@@ -164,7 +178,14 @@ pub fn run(cli: Cli) -> Result<()> {
     if config.json {
         write_json_report(io::stdout(), &report)?;
     } else {
-        print_report(io::stdout(), &report)?;
+        let mode = if config.verbose {
+            OutputMode::Verbose
+        } else if config.rgb {
+            OutputMode::CompactWithRgb
+        } else {
+            OutputMode::Compact
+        };
+        print_report(io::stdout(), &report, mode)?;
     }
 
     Ok(())
