@@ -15,6 +15,14 @@ It clusters pixels in Oklab, uses k-means++ initialization, stops when centroid 
 
 ## Install
 
+### Homebrew
+
+```bash
+brew install khzaw/tap/huex
+```
+
+### From source
+
 ```bash
 cargo build --release
 ```
@@ -25,19 +33,22 @@ The binary will be available at `target/release/huex`.
 
 ```bash
 # Human-readable output
-cargo run -- --image ./fixtures/duo.ppm
+huex --image ./fixtures/duo.ppm
 
 # Human-readable output with RGB values
-cargo run -- --image ./fixtures/duo.ppm --rgb
+huex --image ./fixtures/duo.ppm --rgb
 
 # Detailed terminal report
-cargo run -- --image ./fixtures/duo.ppm --verbose
+huex --image ./fixtures/duo.ppm --verbose
 
 # JSON output for scripts and agents
-cargo run -- --image ./fixtures/duo.ppm --json
+huex --image ./fixtures/duo.ppm --json
 
 # Read from stdin
-cat ./fixtures/duo.ppm | cargo run -- --image - --json
+cat ./fixtures/duo.ppm | huex --image - --json
+
+# Run without installing
+cargo run -- --image ./fixtures/duo.ppm --json
 ```
 
 ## Flags
