@@ -399,3 +399,71 @@ fn summarize_colors(
 
     colors
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::harmony::{HarmonyColor, HarmonySet};
+
+    fn report_with_harmony() -> Report {
+        Report {
+            tool: "huex",
+            version: "0.2.0",
+            image: ImageReport {
+                source: "fixture.ppm".into(),
+                width: 1,
+                height: 1,
+                visible_pixels: 1,
+                sampled_pixels: 1,
+            },
+            settings: SettingsReport {
+                requested_colors: 1,
+                max_iterations: 1,
+                sample_limit: 1,
+                seed: 42,
+                color_space: "Oklab",
+                initialization: "kmeans++",
+                convergence_delta_e: CONVERGENCE_DELTA_E,
+                dedupe_delta_e: MERGE_DELTA_E,
+                sort: "population".into(),
+                harmony: Some("complement".into()),
+            },
+            colors: vec![ColorReport {
+                rank: 1,
+                hex: "#FF0000".into(),
+                rgb: Rgb8 { r: 255, g: 0, b: 0 },
+                oklab: rgb8_to_oklab(Rgb8 { r: 255, g: 0, b: 0 }),
+                population: 1,
+                percentage: 1.0,
+                harmonies: Some(vec![HarmonySet {
+                    harmony: HarmonyMode::Complement,
+                    colors: vec![HarmonyColor {
+                        hex: "#00A9DB".into(),
+                        rgb: Rgb8 {
+                            r: 0,
+                            g: 169,
+                            b: 219,
+                        },
+                        oklab: rgb8_to_oklab(Rgb8 {
+                            r: 0,
+                            g: 169,
+                            b: 219,
+                        }),
+                        hue_offset_degrees: 180.0,
+                    }],
+                }]),
+            }],
+        }
+    }
+
+    #[test]
+    fn hex_output_keeps_one_hex_per_line_with_harmonies() {
+        let mut output = Vec::new();
+        let report = report_with_harmony();
+
+        print_report(&mut output, &report, OutputMode::Hex).unwrap();
+
+        let rendered = String::from_utf8(output).unwrap();
+        assert_eq!(rendered.lines().collect::<Vec<_>>(), ["#FF0000", "#00A9DB"]);
+    }
+}

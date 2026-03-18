@@ -80,7 +80,7 @@ pub fn print_report(mut writer: impl Write, report: &Report, mode: OutputMode) -
                 if let Some(harmonies) = &color.harmonies {
                     for set in harmonies {
                         for hc in &set.colors {
-                            writeln!(writer, "    {}", hc.hex)?;
+                            writeln!(writer, "{}", hc.hex)?;
                         }
                     }
                 }
