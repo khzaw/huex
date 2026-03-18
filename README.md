@@ -9,6 +9,7 @@ It clusters pixels in Oklab, uses k-means++ initialization, stops when centroid 
 - Agent-friendly `--json` output with hex, RGB, Oklab coordinates, population, and percentage.
 - Compact default terminal output with ANSI swatches, hex values, and percentages.
 - `--sort population|luminance|hue` to control color ordering.
+- `--harmony` computes color-theory harmonies (complement, analogous, triadic, split-complement, tetradic, or all) for each dominant color.
 - Optional `--rgb` and `--verbose` terminal modes.
 - Deterministic sampling and initialization via `--seed`.
 - Accepts `--image <PATH>` or a positional image path.
@@ -48,6 +49,15 @@ huex --image ./fixtures/duo.ppm --sort luminance
 # Sort by hue (color wheel order)
 huex --image ./fixtures/duo.ppm --sort hue
 
+# Compute complement harmonies for each dominant color
+huex --image ./fixtures/duo.ppm --harmony complement
+
+# All harmony types with detailed output
+huex --image ./fixtures/duo.ppm --harmony all --verbose
+
+# Harmonies in JSON
+huex --image ./fixtures/duo.ppm --harmony triadic --json
+
 # JSON output for scripts and agents
 huex --image ./fixtures/duo.ppm --json
 
@@ -70,6 +80,7 @@ cargo run -- --image ./fixtures/duo.ppm --json
 - `--hex`: print one hex color per line, ideal for piping.
 - `--json`: emit JSON instead of ANSI text.
 - `--sort <MODE>`: sort output colors by `population` (default), `luminance` (lightest first), or `hue` (color wheel order).
+- `--harmony <MODE>`: compute color harmonies for each dominant color. Modes: `complement`, `analogous`, `triadic`, `split-complement`, `tetradic`, `all`.
 
 ## Notes
 

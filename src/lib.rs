@@ -1,5 +1,6 @@
 mod cluster;
 mod color;
+mod harmony;
 mod output;
 
 use std::io::{self, Read};
@@ -14,6 +15,7 @@ use crate::cluster::{
     Cluster, fit_kmeans, merge_close_clusters, nearest_cluster_index, sample_pixels,
 };
 use crate::color::{Lab, Rgb8, rgb8_to_oklab};
+use crate::harmony::{HarmonyMode, HarmonySet, compute_harmonies};
 use crate::output::{OutputMode, print_report, write_json_report};
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
@@ -104,6 +106,13 @@ pub struct Cli {
         help = "Sort colors by population, luminance, or hue."
     )]
     pub sort: SortMode,
+
+    #[arg(
+        long,
+        value_enum,
+        help = "Compute color harmonies: complement, analogous, triadic, split-complement, tetradic, or all."
+    )]
+    pub harmony: Option<HarmonyMode>,
 }
 
 #[derive(Debug)]
@@ -121,6 +130,7 @@ struct Config {
     seed: u64,
     output: OutputFormat,
     sort: SortMode,
+    harmony: Option<HarmonyMode>,
 }
 
 #[derive(Debug)]
@@ -160,6 +170,8 @@ pub struct SettingsReport {
     convergence_delta_e: f64,
     dedupe_delta_e: f64,
     sort: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    harmony: Option<String>,
 }
 
 #[derive(Debug, Serialize)]
@@ -170,6 +182,8 @@ pub struct ColorReport {
     oklab: Lab,
     population: usize,
     percentage: f64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub harmonies: Option<Vec<HarmonySet>>,
 }
 
 impl Config {
@@ -206,6 +220,7 @@ impl Config {
             seed: cli.seed,
             output,
             sort: cli.sort,
+            harmony: cli.harmony,
         })
     }
 }
@@ -238,7 +253,7 @@ fn analyze(config: &Config) -> Result<Report> {
         CONVERGENCE_DELTA_E,
     )?;
     let merged_clusters = merge_close_clusters(raw_clusters, MERGE_OKLAB_DISTANCE);
-    let colors = summarize_colors(&image.pixels, &merged_clusters, config.sort);
+    let colors = summarize_colors(&image.pixels, &merged_clusters, config.sort, config.harmony);
 
     Ok(Report {
         tool: env!("CARGO_PKG_NAME"),
@@ -265,6 +280,7 @@ fn analyze(config: &Config) -> Result<Report> {
                 SortMode::Hue => "hue",
             }
             .into(),
+            harmony: config.harmony.map(|m| m.to_string()),
         },
         colors,
     })
@@ -325,7 +341,12 @@ fn blend_over_white(pixel: [u8; 4]) -> Option<Rgb8> {
     })
 }
 
-fn summarize_colors(pixels: &[Rgb8], clusters: &[Cluster], sort: SortMode) -> Vec<ColorReport> {
+fn summarize_colors(
+    pixels: &[Rgb8],
+    clusters: &[Cluster],
+    sort: SortMode,
+    harmony: Option<HarmonyMode>,
+) -> Vec<ColorReport> {
     let mut counts = vec![0usize; clusters.len()];
     let mut sums = vec![Lab::default(); clusters.len()];
 
@@ -353,6 +374,7 @@ fn summarize_colors(pixels: &[Rgb8], clusters: &[Cluster], sort: SortMode) -> Ve
             oklab: centroid,
             population: counts[index],
             percentage: counts[index] as f64 / total_pixels,
+            harmonies: harmony.map(|mode| compute_harmonies(centroid, mode)),
         });
     }
 
@@ -376,4 +398,72 @@ fn summarize_colors(pixels: &[Rgb8], clusters: &[Cluster], sort: SortMode) -> Ve
     }
 
     colors
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::harmony::{HarmonyColor, HarmonySet};
+
+    fn report_with_harmony() -> Report {
+        Report {
+            tool: "huex",
+            version: "0.2.0",
+            image: ImageReport {
+                source: "fixture.ppm".into(),
+                width: 1,
+                height: 1,
+                visible_pixels: 1,
+                sampled_pixels: 1,
+            },
+            settings: SettingsReport {
+                requested_colors: 1,
+                max_iterations: 1,
+                sample_limit: 1,
+                seed: 42,
+                color_space: "Oklab",
+                initialization: "kmeans++",
+                convergence_delta_e: CONVERGENCE_DELTA_E,
+                dedupe_delta_e: MERGE_DELTA_E,
+                sort: "population".into(),
+                harmony: Some("complement".into()),
+            },
+            colors: vec![ColorReport {
+                rank: 1,
+                hex: "#FF0000".into(),
+                rgb: Rgb8 { r: 255, g: 0, b: 0 },
+                oklab: rgb8_to_oklab(Rgb8 { r: 255, g: 0, b: 0 }),
+                population: 1,
+                percentage: 1.0,
+                harmonies: Some(vec![HarmonySet {
+                    harmony: HarmonyMode::Complement,
+                    colors: vec![HarmonyColor {
+                        hex: "#00A9DB".into(),
+                        rgb: Rgb8 {
+                            r: 0,
+                            g: 169,
+                            b: 219,
+                        },
+                        oklab: rgb8_to_oklab(Rgb8 {
+                            r: 0,
+                            g: 169,
+                            b: 219,
+                        }),
+                        hue_offset_degrees: 180.0,
+                    }],
+                }]),
+            }],
+        }
+    }
+
+    #[test]
+    fn hex_output_keeps_one_hex_per_line_with_harmonies() {
+        let mut output = Vec::new();
+        let report = report_with_harmony();
+
+        print_report(&mut output, &report, OutputMode::Hex).unwrap();
+
+        let rendered = String::from_utf8(output).unwrap();
+        assert_eq!(rendered.lines().collect::<Vec<_>>(), ["#FF0000", "#00A9DB"]);
+    }
 }
