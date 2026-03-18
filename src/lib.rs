@@ -73,6 +73,13 @@ pub struct Cli {
     #[arg(long, help = "Emit structured JSON output for agents and scripts.")]
     pub json: bool,
 
+    #[arg(
+        long,
+        conflicts_with_all = ["json", "rgb", "verbose"],
+        help = "Print one hex color per line, nothing else. Ideal for piping."
+    )]
+    pub hex: bool,
+
     #[arg(long, help = "Include RGB values in the compact terminal output.")]
     pub rgb: bool,
 
@@ -85,15 +92,19 @@ pub struct Cli {
 }
 
 #[derive(Debug)]
+enum OutputFormat {
+    Json,
+    Terminal(OutputMode),
+}
+
+#[derive(Debug)]
 struct Config {
     image: PathBuf,
     k: usize,
     max_iterations: usize,
     sample_limit: usize,
     seed: u64,
-    json: bool,
-    rgb: bool,
-    verbose: bool,
+    output: OutputFormat,
 }
 
 #[derive(Debug)]
@@ -158,15 +169,25 @@ impl Config {
             bail!("--iter must be greater than 0");
         }
 
+        let output = if cli.json {
+            OutputFormat::Json
+        } else if cli.hex {
+            OutputFormat::Terminal(OutputMode::Hex)
+        } else if cli.verbose {
+            OutputFormat::Terminal(OutputMode::Verbose)
+        } else if cli.rgb {
+            OutputFormat::Terminal(OutputMode::CompactWithRgb)
+        } else {
+            OutputFormat::Terminal(OutputMode::Compact)
+        };
+
         Ok(Self {
             image,
             k: cli.k,
             max_iterations: cli.max_iterations,
             sample_limit: cli.sample,
             seed: cli.seed,
-            json: cli.json,
-            rgb: cli.rgb,
-            verbose: cli.verbose,
+            output,
         })
     }
 }
@@ -175,17 +196,9 @@ pub fn run(cli: Cli) -> Result<()> {
     let config = Config::from_cli(cli)?;
     let report = analyze(&config)?;
 
-    if config.json {
-        write_json_report(io::stdout(), &report)?;
-    } else {
-        let mode = if config.verbose {
-            OutputMode::Verbose
-        } else if config.rgb {
-            OutputMode::CompactWithRgb
-        } else {
-            OutputMode::Compact
-        };
-        print_report(io::stdout(), &report, mode)?;
+    match config.output {
+        OutputFormat::Json => write_json_report(io::stdout(), &report)?,
+        OutputFormat::Terminal(mode) => print_report(io::stdout(), &report, mode)?,
     }
 
     Ok(())

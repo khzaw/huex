@@ -9,6 +9,7 @@ pub enum OutputMode {
     Compact,
     CompactWithRgb,
     Verbose,
+    Hex,
 }
 
 pub fn write_json_report(mut writer: impl Write, report: &Report) -> Result<()> {
@@ -42,6 +43,11 @@ pub fn print_report(mut writer: impl Write, report: &Report, mode: OutputMode) -
                     color.rgb.b,
                     color.percentage * 100.0,
                 )?;
+            }
+        }
+        OutputMode::Hex => {
+            for color in &report.colors {
+                writeln!(writer, "{}", color.hex)?;
             }
         }
         OutputMode::Verbose => {
