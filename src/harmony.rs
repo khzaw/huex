@@ -3,7 +3,7 @@ use std::fmt;
 use clap::ValueEnum;
 use serde::Serialize;
 
-use crate::color::{Lab, Rgb8};
+use crate::color::{Lab, Rgb8, rgb8_to_oklab};
 
 #[derive(Debug, Clone, Copy, ValueEnum, Serialize)]
 #[serde(rename_all = "kebab-case")]
@@ -74,10 +74,11 @@ fn compute_single(lab: Lab, mode: HarmonyMode) -> HarmonySet {
         .map(|&deg| {
             let rotated = rotate_hue(lab, deg);
             let rgb = rotated.to_rgb8();
+            let realized = rgb8_to_oklab(rgb);
             HarmonyColor {
                 hex: rgb.hex(),
                 rgb,
-                oklab: rotated,
+                oklab: realized,
                 hue_offset_degrees: deg,
             }
         })
@@ -107,6 +108,7 @@ pub fn compute_harmonies(lab: Lab, mode: HarmonyMode) -> Vec<HarmonySet> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::color::rgb8_to_oklab;
 
     #[test]
     fn rotate_180_reverses_hue() {
@@ -216,5 +218,17 @@ mod tests {
         };
         let sets = compute_harmonies(lab, HarmonyMode::All);
         assert_eq!(sets.len(), 5);
+    }
+
+    #[test]
+    fn clipped_harmonies_report_realized_oklab() {
+        let lab = rgb8_to_oklab(Rgb8 { r: 0, g: 255, b: 0 });
+        let sets = compute_harmonies(lab, HarmonyMode::Complement);
+        let harmony = &sets[0].colors[0];
+        let realized = rgb8_to_oklab(harmony.rgb);
+
+        assert!((harmony.oklab.l - realized.l).abs() < 1e-10);
+        assert!((harmony.oklab.a - realized.a).abs() < 1e-10);
+        assert!((harmony.oklab.b - realized.b).abs() < 1e-10);
     }
 }
