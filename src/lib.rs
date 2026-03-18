@@ -125,7 +125,7 @@ pub struct Report {
 }
 
 #[derive(Debug, Serialize)]
-struct ImageReport {
+pub struct ImageReport {
     source: String,
     width: u32,
     height: u32,
@@ -134,7 +134,7 @@ struct ImageReport {
 }
 
 #[derive(Debug, Serialize)]
-struct SettingsReport {
+pub struct SettingsReport {
     requested_colors: usize,
     max_iterations: usize,
     sample_limit: usize,
@@ -247,8 +247,9 @@ fn analyze(config: &Config) -> Result<Report> {
 }
 
 fn load_image(path: &Path) -> Result<LoadedImage> {
+    let is_stdin = path == Path::new("-");
     let source = path.display().to_string();
-    let dynamic = if source == "-" {
+    let dynamic = if is_stdin {
         let mut bytes = Vec::new();
         io::stdin()
             .read_to_end(&mut bytes)
@@ -302,7 +303,7 @@ fn blend_over_white(pixel: [u8; 4]) -> Option<Rgb8> {
 
 fn summarize_colors(pixels: &[Rgb8], clusters: &[Cluster]) -> Vec<ColorReport> {
     let mut counts = vec![0usize; clusters.len()];
-    let mut sums = vec![Lab::zero(); clusters.len()];
+    let mut sums = vec![Lab::default(); clusters.len()];
 
     for pixel in pixels {
         let lab = rgb8_to_oklab(*pixel);

@@ -21,15 +21,17 @@ impl Rgb8 {
     }
 }
 
-impl Lab {
-    pub fn zero() -> Self {
+impl Default for Lab {
+    fn default() -> Self {
         Self {
             l: 0.0,
             a: 0.0,
             b: 0.0,
         }
     }
+}
 
+impl Lab {
     pub fn distance(self, other: Self) -> f64 {
         self.distance_squared(other).sqrt()
     }

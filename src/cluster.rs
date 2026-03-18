@@ -2,7 +2,7 @@ use anyhow::{Result, bail};
 
 use crate::color::{Lab, Rgb8};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct Cluster {
     pub centroid: Lab,
     pub weight: usize,
@@ -75,11 +75,11 @@ pub fn fit_kmeans(
     let k = requested_k.min(points.len()).max(1);
     let mut centroids = init_kmeans_plus_plus(points, k, seed);
     let mut assignments = vec![0usize; points.len()];
-    let mut sums = vec![Lab::zero(); centroids.len()];
+    let mut sums = vec![Lab::default(); centroids.len()];
     let mut counts = vec![0usize; centroids.len()];
 
     for _ in 0..max_iterations {
-        sums.iter_mut().for_each(|s| *s = Lab::zero());
+        sums.iter_mut().for_each(|s| *s = Lab::default());
         counts.iter_mut().for_each(|c| *c = 0);
         let mut changed = false;
 
@@ -114,7 +114,7 @@ pub fn fit_kmeans(
     // Final pass: recompute sums/counts against the latest centroids so
     // cluster centroids and weights are consistent when the loop exhausted
     // max_iterations without converging.
-    sums.iter_mut().for_each(|s| *s = Lab::zero());
+    sums.iter_mut().for_each(|s| *s = Lab::default());
     counts.iter_mut().for_each(|c| *c = 0);
     for point in points.iter().copied() {
         let nearest = nearest_index(point, &centroids);
@@ -179,25 +179,18 @@ pub fn merge_close_clusters(mut clusters: Vec<Cluster>, threshold: f64) -> Vec<C
 }
 
 pub fn nearest_cluster_index(point: Lab, clusters: &[Cluster]) -> usize {
-    let mut best_index = 0usize;
-    let mut best_distance = f64::MAX;
-
-    for (index, cluster) in clusters.iter().enumerate() {
-        let distance = point.distance_squared(cluster.centroid);
-        if distance < best_distance {
-            best_distance = distance;
-            best_index = index;
-        }
-    }
-
-    best_index
+    nearest_centroid(point, clusters.iter().map(|c| c.centroid))
 }
 
 fn nearest_index(point: Lab, centroids: &[Lab]) -> usize {
+    nearest_centroid(point, centroids.iter().copied())
+}
+
+fn nearest_centroid(point: Lab, centroids: impl Iterator<Item = Lab>) -> usize {
     let mut best_index = 0usize;
     let mut best_distance = f64::MAX;
 
-    for (index, centroid) in centroids.iter().copied().enumerate() {
+    for (index, centroid) in centroids.enumerate() {
         let distance = point.distance_squared(centroid);
         if distance < best_distance {
             best_distance = distance;
@@ -238,7 +231,7 @@ fn init_kmeans_plus_plus(points: &[Lab], k: usize, seed: u64) -> Vec<Lab> {
             centroids.push(chosen);
         }
 
-        let new_centroid = *centroids.last().unwrap();
+        let new_centroid = centroids[centroids.len() - 1];
         for (dist, point) in distances.iter_mut().zip(points.iter()) {
             let d = point.distance_squared(new_centroid);
             if d < *dist {
