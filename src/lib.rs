@@ -6,7 +6,7 @@ use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, anyhow, bail};
-use clap::Parser;
+use clap::{Parser, ValueEnum};
 use image::io::Reader as ImageReader;
 use serde::Serialize;
 
@@ -15,6 +15,13 @@ use crate::cluster::{
 };
 use crate::color::{Lab, Rgb8, rgb8_to_oklab};
 use crate::output::{OutputMode, print_report, write_json_report};
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum SortMode {
+    Population,
+    Luminance,
+    Hue,
+}
 
 const CONVERGENCE_DELTA_E: f64 = 0.001;
 const MERGE_DELTA_E: f64 = 5.0;
@@ -89,6 +96,14 @@ pub struct Cli {
         help = "Show the detailed terminal report with sampling and Oklab values."
     )]
     pub verbose: bool,
+
+    #[arg(
+        long,
+        value_enum,
+        default_value_t = SortMode::Population,
+        help = "Sort colors by population, luminance, or hue."
+    )]
+    pub sort: SortMode,
 }
 
 #[derive(Debug)]
@@ -105,6 +120,7 @@ struct Config {
     sample_limit: usize,
     seed: u64,
     output: OutputFormat,
+    sort: SortMode,
 }
 
 #[derive(Debug)]
@@ -143,6 +159,7 @@ pub struct SettingsReport {
     initialization: &'static str,
     convergence_delta_e: f64,
     dedupe_delta_e: f64,
+    sort: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -188,6 +205,7 @@ impl Config {
             sample_limit: cli.sample,
             seed: cli.seed,
             output,
+            sort: cli.sort,
         })
     }
 }
@@ -220,7 +238,7 @@ fn analyze(config: &Config) -> Result<Report> {
         CONVERGENCE_DELTA_E,
     )?;
     let merged_clusters = merge_close_clusters(raw_clusters, MERGE_OKLAB_DISTANCE);
-    let colors = summarize_colors(&image.pixels, &merged_clusters);
+    let colors = summarize_colors(&image.pixels, &merged_clusters, config.sort);
 
     Ok(Report {
         tool: env!("CARGO_PKG_NAME"),
@@ -241,6 +259,12 @@ fn analyze(config: &Config) -> Result<Report> {
             initialization: "kmeans++",
             convergence_delta_e: CONVERGENCE_DELTA_E,
             dedupe_delta_e: MERGE_DELTA_E,
+            sort: match config.sort {
+                SortMode::Population => "population",
+                SortMode::Luminance => "luminance",
+                SortMode::Hue => "hue",
+            }
+            .into(),
         },
         colors,
     })
@@ -301,7 +325,7 @@ fn blend_over_white(pixel: [u8; 4]) -> Option<Rgb8> {
     })
 }
 
-fn summarize_colors(pixels: &[Rgb8], clusters: &[Cluster]) -> Vec<ColorReport> {
+fn summarize_colors(pixels: &[Rgb8], clusters: &[Cluster], sort: SortMode) -> Vec<ColorReport> {
     let mut counts = vec![0usize; clusters.len()];
     let mut sums = vec![Lab::default(); clusters.len()];
 
@@ -332,7 +356,21 @@ fn summarize_colors(pixels: &[Rgb8], clusters: &[Cluster]) -> Vec<ColorReport> {
         });
     }
 
-    colors.sort_by(|left, right| right.population.cmp(&left.population));
+    match sort {
+        SortMode::Population => {
+            colors.sort_by(|a, b| b.population.cmp(&a.population));
+        }
+        SortMode::Luminance => {
+            colors.sort_by(|a, b| b.oklab.l.total_cmp(&a.oklab.l));
+        }
+        SortMode::Hue => {
+            colors.sort_by(|a, b| {
+                let hue_a = a.oklab.b.atan2(a.oklab.a);
+                let hue_b = b.oklab.b.atan2(b.oklab.a);
+                hue_a.total_cmp(&hue_b)
+            });
+        }
+    }
     for (index, color) in colors.iter_mut().enumerate() {
         color.rank = index + 1;
     }
