@@ -29,6 +29,19 @@ pub fn print_report(mut writer: impl Write, report: &Report, mode: OutputMode) -
                     color.hex,
                     color.percentage * 100.0,
                 )?;
+                if let Some(harmonies) = &color.harmonies {
+                    for set in harmonies {
+                        writeln!(writer, "      {}", set.harmony)?;
+                        for hc in &set.colors {
+                            writeln!(
+                                writer,
+                                "        {}  {}",
+                                swatch(hc.rgb.r, hc.rgb.g, hc.rgb.b),
+                                hc.hex,
+                            )?;
+                        }
+                    }
+                }
             }
         }
         OutputMode::CompactWithRgb => {
@@ -43,11 +56,34 @@ pub fn print_report(mut writer: impl Write, report: &Report, mode: OutputMode) -
                     color.rgb.b,
                     color.percentage * 100.0,
                 )?;
+                if let Some(harmonies) = &color.harmonies {
+                    for set in harmonies {
+                        writeln!(writer, "      {}", set.harmony)?;
+                        for hc in &set.colors {
+                            writeln!(
+                                writer,
+                                "        {}  {:<8} rgb({:>3}, {:>3}, {:>3})",
+                                swatch(hc.rgb.r, hc.rgb.g, hc.rgb.b),
+                                hc.hex,
+                                hc.rgb.r,
+                                hc.rgb.g,
+                                hc.rgb.b,
+                            )?;
+                        }
+                    }
+                }
             }
         }
         OutputMode::Hex => {
             for color in &report.colors {
                 writeln!(writer, "{}", color.hex)?;
+                if let Some(harmonies) = &color.harmonies {
+                    for set in harmonies {
+                        for hc in &set.colors {
+                            writeln!(writer, "    {}", hc.hex)?;
+                        }
+                    }
+                }
             }
         }
         OutputMode::Verbose => {
@@ -82,6 +118,23 @@ pub fn print_report(mut writer: impl Write, report: &Report, mode: OutputMode) -
                     color.oklab.a,
                     color.oklab.b
                 )?;
+                if let Some(harmonies) = &color.harmonies {
+                    for set in harmonies {
+                        writeln!(writer, "      {}", set.harmony)?;
+                        for hc in &set.colors {
+                            writeln!(
+                                writer,
+                                "        {}  {:<8}  Oklab({:.4}, {:.4}, {:.4})  {:+.0}°",
+                                swatch(hc.rgb.r, hc.rgb.g, hc.rgb.b),
+                                hc.hex,
+                                hc.oklab.l,
+                                hc.oklab.a,
+                                hc.oklab.b,
+                                hc.hue_offset_degrees,
+                            )?;
+                        }
+                    }
+                }
             }
         }
     }
