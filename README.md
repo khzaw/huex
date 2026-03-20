@@ -8,6 +8,7 @@ It clusters pixels in Oklab, uses k-means++ initialization, stops when centroid 
 
 - Agent-friendly `--json` output with hex, RGB, Oklab coordinates, population, and percentage.
 - Compact default terminal output with ANSI swatches, hex values, and percentages.
+- `--svg` swatch strip output for embedding palettes in docs, READMEs, and design systems.
 - `--sort population|luminance|hue` to control color ordering.
 - `--harmony` computes color-theory harmonies (complement, analogous, triadic, split-complement, tetradic, or all) for each dominant color.
 - Optional `--rgb` and `--verbose` terminal modes.
@@ -61,6 +62,9 @@ huex --image ./fixtures/duo.ppm --harmony triadic --json
 # JSON output for scripts and agents
 huex --image ./fixtures/duo.ppm --json
 
+# SVG swatch strip for docs and READMEs
+huex --image ./fixtures/duo.ppm --svg > palette.svg
+
 # Read from stdin
 cat ./fixtures/duo.ppm | huex --image - --json
 
@@ -79,6 +83,7 @@ cargo run -- --image ./fixtures/duo.ppm --json
 - `--verbose`: show the detailed terminal report.
 - `--hex`: print one hex color per line, ideal for piping.
 - `--json`: emit JSON instead of ANSI text.
+- `--svg`: emit a single-row SVG swatch strip of the extracted palette.
 - `--sort <MODE>`: sort output colors by `population` (default), `luminance` (lightest first), or `hue` (color wheel order).
 - `--harmony <MODE>`: compute color harmonies for each dominant color. Modes: `complement`, `analogous`, `triadic`, `split-complement`, `tetradic`, `all`.
 
