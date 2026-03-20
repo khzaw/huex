@@ -39,8 +39,12 @@ pub fn write_svg_report(mut writer: impl Write, report: &Report) -> Result<()> {
         writer,
         r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {width} {height}" width="{width}" height="{height}" role="img" aria-labelledby="title desc">"#
     )?;
-    writeln!(writer, "  <title>{}</title>", escape_xml(&title))?;
-    writeln!(writer, "  <desc>{}</desc>", escape_xml(&desc))?;
+    writeln!(
+        writer,
+        "  <title id=\"title\">{}</title>",
+        escape_xml(&title)
+    )?;
+    writeln!(writer, "  <desc id=\"desc\">{}</desc>", escape_xml(&desc))?;
 
     for (index, color) in report.colors.iter().enumerate() {
         let x = index as u32 * SWATCH_WIDTH;
@@ -213,7 +217,7 @@ fn escape_xml(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::color::{Rgb8, rgb8_to_oklab};
+    use crate::color::{rgb8_to_oklab, Rgb8};
     use crate::{ColorReport, ImageReport, Report, SettingsReport};
 
     fn report_with_palette() -> Report {
@@ -280,11 +284,10 @@ mod tests {
         assert!(rendered.starts_with(
             r#"<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 64" width="192" height="64" role="img" aria-labelledby="title desc">"#
         ));
-        assert!(rendered.contains("<title>fixtures/example &amp; test.ppm palette</title>"));
+        assert!(rendered
+            .contains("<title id=\"title\">fixtures/example &amp; test.ppm palette</title>"));
         assert!(rendered.contains(r##"<rect x="0" y="0" width="96" height="64" fill="#FF0000">"##));
-        assert!(
-            rendered.contains(r##"<rect x="96" y="0" width="96" height="64" fill="#00A9DB">"##)
-        );
+        assert!(rendered.contains(r##"<rect x="96" y="0" width="96" height="64" fill="#00A9DB">"##));
         assert!(rendered.contains(
             r##"<line x1="96" y1="0" x2="96" y2="64" stroke="#000000" stroke-opacity="0.12"/>"##
         ));
