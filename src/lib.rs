@@ -16,7 +16,7 @@ use crate::cluster::{
 };
 use crate::color::{Lab, Rgb8, rgb8_to_oklab};
 use crate::harmony::{HarmonyMode, HarmonySet, compute_harmonies};
-use crate::output::{OutputMode, print_report, write_json_report};
+use crate::output::{OutputMode, print_report, write_json_report, write_svg_report};
 
 #[derive(Debug, Clone, Copy, ValueEnum)]
 pub enum SortMode {
@@ -89,6 +89,13 @@ pub struct Cli {
     )]
     pub hex: bool,
 
+    #[arg(
+        long,
+        conflicts_with_all = ["json", "hex", "rgb", "verbose"],
+        help = "Emit an SVG swatch strip for docs, READMEs, and design systems."
+    )]
+    pub svg: bool,
+
     #[arg(long, help = "Include RGB values in the compact terminal output.")]
     pub rgb: bool,
 
@@ -118,6 +125,7 @@ pub struct Cli {
 #[derive(Debug)]
 enum OutputFormat {
     Json,
+    Svg,
     Terminal(OutputMode),
 }
 
@@ -202,6 +210,8 @@ impl Config {
 
         let output = if cli.json {
             OutputFormat::Json
+        } else if cli.svg {
+            OutputFormat::Svg
         } else if cli.hex {
             OutputFormat::Terminal(OutputMode::Hex)
         } else if cli.verbose {
@@ -231,6 +241,7 @@ pub fn run(cli: Cli) -> Result<()> {
 
     match config.output {
         OutputFormat::Json => write_json_report(io::stdout(), &report)?,
+        OutputFormat::Svg => write_svg_report(io::stdout(), &report)?,
         OutputFormat::Terminal(mode) => print_report(io::stdout(), &report, mode)?,
     }
 
@@ -404,6 +415,7 @@ fn summarize_colors(
 mod tests {
     use super::*;
     use crate::harmony::{HarmonyColor, HarmonySet};
+    use clap::Parser;
 
     fn report_with_harmony() -> Report {
         Report {
@@ -465,5 +477,18 @@ mod tests {
 
         let rendered = String::from_utf8(output).unwrap();
         assert_eq!(rendered.lines().collect::<Vec<_>>(), ["#FF0000", "#00A9DB"]);
+    }
+
+    #[test]
+    fn svg_flag_selects_svg_output() {
+        let cli = Cli::try_parse_from(["huex", "fixture.ppm", "--svg"]).unwrap();
+        let config = Config::from_cli(cli).unwrap();
+
+        assert!(matches!(config.output, OutputFormat::Svg));
+    }
+
+    #[test]
+    fn svg_flag_conflicts_with_json() {
+        assert!(Cli::try_parse_from(["huex", "fixture.ppm", "--svg", "--json"]).is_err());
     }
 }
